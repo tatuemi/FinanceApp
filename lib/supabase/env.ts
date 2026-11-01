@@ -13,6 +13,11 @@ const PLACEHOLDER_VALUES = new Set([
   'your-anon-key',
 ]);
 
+const PROJECT_PUBLIC_ANON_FALLBACK: Record<string, string> = {
+  'https://bthuewjxzhuggrcpmwvf.supabase.co':
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aHVld2p4emh1Z2dyY3Btd3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyNDE1MzUsImV4cCI6MjEwODgxNzUzNX0.6SRisJZPUKviC5NY5qGI9sBv_DiPUcTUHrkUyAIVgZE',
+};
+
 export function getSupabaseEnv(): SupabaseEnvConfig {
   const rawUrl = (
     process.env.NEXT_PUBLIC_SUPABASE_URL ??
@@ -29,9 +34,10 @@ export function getSupabaseEnv(): SupabaseEnvConfig {
     .filter((v) => v.length > 0 && !PLACEHOLDER_VALUES.has(v));
 
   // Preferir la clave que tenga estructura completa de JWT (con puntos) o clave publishable válida
-  const validJwtKey = candidates.find(
-    (k) => (k.startsWith('eyJ') && k.includes('.')) || k.startsWith('sb_publishable_')
-  );
+  const validJwtKey =
+    candidates.find(
+      (k) => (k.startsWith('eyJ') && k.includes('.')) || k.startsWith('sb_publishable_')
+    ) ?? PROJECT_PUBLIC_ANON_FALLBACK[rawUrl];
   const rawKey = validJwtKey ?? '';
 
   const missingVars: string[] = [];
