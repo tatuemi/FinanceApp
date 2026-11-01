@@ -33,11 +33,13 @@ export function getSupabaseEnv(): SupabaseEnvConfig {
     .map((v) => (v ?? '').trim())
     .filter((v) => v.length > 0 && !PLACEHOLDER_VALUES.has(v));
 
-  // Preferir la clave que tenga estructura completa de JWT (con puntos) o clave publishable válida
-  const validJwtKey =
-    candidates.find(
-      (k) => (k.startsWith('eyJ') && k.includes('.')) || k.startsWith('sb_publishable_')
-    ) ?? PROJECT_PUBLIC_ANON_FALLBACK[rawUrl];
+  // Si el proyecto coincide con bthuewjxzhuggrcpmwvf y la variable en Vercel está truncada (<150 chars o sin los 2 puntos del JWT), usar la clave pública completa
+  const fullProjectKey = PROJECT_PUBLIC_ANON_FALLBACK[rawUrl];
+  const validJwtKey = fullProjectKey
+    ? candidates.find((k) => k.split('.').length === 3 && k.length >= 150) ?? fullProjectKey
+    : candidates.find(
+        (k) => (k.startsWith('eyJ') && k.includes('.')) || k.startsWith('sb_publishable_')
+      );
   const rawKey = validJwtKey ?? '';
 
   const missingVars: string[] = [];
