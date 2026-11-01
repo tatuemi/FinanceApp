@@ -1,11 +1,21 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { getSupabaseEnv, sanitizeRedirectPath } from '@/lib/supabase/env';
 import { ensureUserProfileForUser } from '@/lib/auth/session';
+import type { Database } from '@/types/database';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const tokenHash = searchParams.get('token_hash');
+  const otpType = searchParams.get('type') as
+    | 'signup'
+    | 'invite'
+    | 'magiclink'
+    | 'recovery'
+    | 'email_change'
+    | 'email'
+    | null;
   const errorParam = searchParams.get('error');
   const nextPath = sanitizeRedirectPath(searchParams.get('next'), '/dashboard');
 
@@ -18,16 +28,53 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?reason=unconfigured`);
   }
 
-  if (!code) {
+  if (!code && !tokenHash) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
   }
 
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  // Construimos la respuesta de redirección y adjuntamos explícitamente las cookies de sesión en ella
+  const redirectResponse = NextResponse.redirect(`${origin}${nextPath}`);
 
-    if (exchangeError) {
-      return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
+  try {
+    const supabase = createServerClient<Database>(env.url, env.publishableKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            redirectResponse.cookies.set(name, value, options);
+          });
+        },
+      },
+    });
+
+    if (code) {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+      if (exchangeError) {
+        // Si el navegador reintentó la URL pero la sesión ya quedó establecida en el primer intento, continuar al dashboard
+        const {
+          data: { user: existingUser },
+        } = await supabase.auth.getUser();
+
+        if (existingUser) {
+          await ensureUserProfileForUser(existingUser);
+          return redirectResponse;
+        }
+
+        return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
+      }
+    } else if (tokenHash && otpType) {
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: otpType,
+      });
+
+      if (otpError) {
+        return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
+      }
     }
 
     const {
@@ -41,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     await ensureUserProfileForUser(user);
 
-    return NextResponse.redirect(`${origin}${nextPath}`);
+    return redirectResponse;
   } catch {
     return NextResponse.redirect(`${origin}/login?error=callback_exception`);
   }

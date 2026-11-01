@@ -1,6 +1,7 @@
 import React from 'react';
 import { getSupabaseEnv, sanitizeRedirectPath } from '@/lib/supabase/env';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { EmailAuthForm } from '@/components/auth/EmailAuthForm';
 import { ShieldCheck, TrendingUp, Wallet, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface LoginPageProps {
@@ -101,10 +102,20 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           <div className="space-y-5">
             <div>
-              <h2 className="text-base font-semibold text-slate-100">Acceso seguro</h2>
+              <h2 className="text-base font-semibold text-slate-100">Acceso a tu cuenta</h2>
               <p className="mt-1 text-xs text-slate-400">
-                Inicia sesión con tu cuenta de Google. Solo se solicita tu identidad básica (nombre y correo).
+                Si ya tienes cuenta inicia sesión con tu correo y contraseña, o crea una cuenta nueva si eres nuevo.
               </p>
+            </div>
+
+            <EmailAuthForm isConfigured={env.isConfigured} nextPath={nextPath} />
+
+            <div className="relative flex items-center py-1">
+              <div className="flex-grow border-t border-slate-800" />
+              <span className="mx-3 shrink-0 text-[11px] uppercase tracking-wider text-slate-500">
+                o acceso rápido con
+              </span>
+              <div className="flex-grow border-t border-slate-800" />
             </div>
 
             <GoogleSignInButton
@@ -122,7 +133,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Wallet className="h-4 w-4 shrink-0 text-indigo-400" />
-                  <span>Control de ingresos, gastos, acciones fraccionadas y ETF en USD ($0/mes)</span>
+                  <span>Control de ingresos, gastos, acciones, ETF y criptos en USD ($0/mes)</span>
                 </li>
               </ul>
             </div>

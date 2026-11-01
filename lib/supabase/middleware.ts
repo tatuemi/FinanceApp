@@ -19,6 +19,10 @@ export function isPublicRoute(pathname: string): boolean {
 
 export async function updateSessionAndProtectRoutes(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+  // No interceptar el intercambio PKCE en /auth/callback ni /auth/signout para preservar intacto el code_verifier
+  if (pathname.startsWith('/auth/')) {
+    return NextResponse.next({ request });
+  }
   const isApiRoute = pathname.startsWith('/api/');
   const publicRoute = isPublicRoute(pathname);
 
