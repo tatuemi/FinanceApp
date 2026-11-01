@@ -19,13 +19,20 @@ export function getSupabaseEnv(): SupabaseEnvConfig {
     process.env.SUPABASE_URL ??
     ''
   ).trim();
-  const rawKey = (
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_PUBLISHABLE_KEY ??
-    process.env.SUPABASE_ANON_KEY ??
-    ''
-  ).trim();
+  const candidates = [
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.SUPABASE_ANON_KEY,
+    process.env.SUPABASE_PUBLISHABLE_KEY,
+  ]
+    .map((v) => (v ?? '').trim())
+    .filter((v) => v.length > 0 && !PLACEHOLDER_VALUES.has(v));
+
+  // Preferir la clave que tenga estructura completa de JWT (con puntos) o clave publishable válida
+  const validJwtKey = candidates.find(
+    (k) => (k.startsWith('eyJ') && k.includes('.')) || k.startsWith('sb_publishable_')
+  );
+  const rawKey = validJwtKey ?? '';
 
   const missingVars: string[] = [];
 

@@ -34,7 +34,7 @@ export function GoogleSignInButton({
     try {
       const supabase = createBrowserSupabaseClient(supabaseUrl, supabaseKey);
       const callbackUrl = new URL('/auth/callback', window.location.origin);
-      if (nextPath && nextPath.startsWith('/')) {
+      if (nextPath && nextPath.startsWith('/') && nextPath !== '/dashboard') {
         callbackUrl.searchParams.set('next', nextPath);
       }
 
