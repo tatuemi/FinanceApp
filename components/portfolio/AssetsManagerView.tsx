@@ -190,10 +190,10 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-white sm:text-2xl">
-            Catálogo de Activos (Acciones y ETF)
+            Catálogo de Activos (Acciones, ETF y Criptos)
           </h1>
           <p className="mt-0.5 text-xs text-slate-400">
-            Administra los instrumentos bursátiles de tu portafolio en USD y sus símbolos de proveedor
+            Administra las acciones, fondos cotizados (ETF) y criptomonedas de tu portafolio en USD
           </p>
         </div>
 
@@ -234,10 +234,10 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
           <div className="my-12 flex flex-col items-center justify-center text-center">
             <Briefcase className="h-9 w-9 text-slate-600" />
             <p className="mt-2 text-sm font-semibold text-slate-200">
-              No tienes acciones ni ETF registrados todavía
+              No tienes acciones, ETF ni criptos registrados todavía
             </p>
             <p className="mt-1 max-w-md text-xs text-slate-400">
-              Registra tus instrumentos bursátiles (ej. AAPL, MSFT, SPY, QQQ, VOO) para empezar a llevar el registro de compras y ventas.
+              Registra tus instrumentos (ej. AAPL, MSFT, SPY, QQQ, BTC, ETH, SOL) para empezar a llevar el registro de compras y ventas y actualizar su precio automáticamente.
             </p>
             <button
               type="button"
@@ -277,7 +277,11 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                       </td>
                       <td className="py-3 px-3 whitespace-nowrap">
                         <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] uppercase text-slate-300">
-                          {asset.asset_type === 'etf' ? 'ETF' : 'Acción'}
+                          {asset.asset_type === 'etf'
+                            ? 'ETF'
+                            : asset.asset_type === 'crypto'
+                            ? 'Cripto'
+                            : 'Acción'}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
@@ -402,7 +406,11 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                     maxLength={20}
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                    placeholder="Ej. AAPL o QQQ"
+                    placeholder={
+                      assetType === 'crypto'
+                        ? 'Ej. BTC, ETH o SOL'
+                        : 'Ej. AAPL o QQQ'
+                    }
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono uppercase text-white"
                   />
                 </div>
@@ -414,11 +422,20 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                   <select
                     id="asset-type"
                     value={assetType}
-                    onChange={(e) => setAssetType(e.target.value as InvestmentAssetType)}
+                    onChange={(e) => {
+                      const nextType = e.target.value as InvestmentAssetType;
+                      setAssetType(nextType);
+                      if (nextType === 'crypto' && (!exchange || exchange === 'NASDAQ')) {
+                        setExchange('CRYPTO');
+                      } else if (nextType !== 'crypto' && exchange === 'CRYPTO') {
+                        setExchange('NASDAQ');
+                      }
+                    }}
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
                   >
                     <option value="stock">Acción (Stock)</option>
                     <option value="etf">Fondo Cotizado (ETF)</option>
+                    <option value="crypto">Criptomoneda (Crypto)</option>
                   </select>
                 </div>
               </div>
@@ -434,7 +451,11 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                   maxLength={150}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej. Apple Inc. o Invesco QQQ Trust"
+                  placeholder={
+                    assetType === 'crypto'
+                      ? 'Ej. Bitcoin o Ethereum'
+                      : 'Ej. Apple Inc. o Invesco QQQ Trust'
+                  }
                   className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
                 />
               </div>
@@ -450,7 +471,7 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                     maxLength={50}
                     value={exchange}
                     onChange={(e) => setExchange(e.target.value.toUpperCase())}
-                    placeholder="NASDAQ, NYSE..."
+                    placeholder={assetType === 'crypto' ? 'CRYPTO, BINANCE...' : 'NASDAQ, NYSE...'}
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
                   />
                 </div>
@@ -465,7 +486,11 @@ export function AssetsManagerView({ assets, quotes }: AssetsManagerViewProps) {
                     maxLength={30}
                     value={providerSymbol}
                     onChange={(e) => setProviderSymbol(e.target.value.toUpperCase())}
-                    placeholder={symbol || 'AAPL'}
+                    placeholder={
+                      assetType === 'crypto'
+                        ? `${symbol || 'BTC'}/USD`
+                        : symbol || 'AAPL'
+                    }
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono uppercase text-white"
                   />
                 </div>

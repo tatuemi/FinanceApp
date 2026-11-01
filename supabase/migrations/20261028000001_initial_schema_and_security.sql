@@ -10,7 +10,7 @@ BEGIN
         CREATE TYPE public.finance_transaction_type AS ENUM ('income', 'expense');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'investment_asset_type') THEN
-        CREATE TYPE public.investment_asset_type AS ENUM ('stock', 'etf');
+        CREATE TYPE public.investment_asset_type AS ENUM ('stock', 'etf', 'crypto');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'investment_transaction_type') THEN
         CREATE TYPE public.investment_transaction_type AS ENUM ('buy', 'sell');

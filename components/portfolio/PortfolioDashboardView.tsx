@@ -212,7 +212,7 @@ export function PortfolioDashboardView({
             Portafolio de Inversiones
           </h1>
           <p className="mt-0.5 text-xs text-slate-400">
-            Valoración en USD · Método de Costo Promedio Ponderado Móvil · Acciones y ETF
+            Valoración en USD · Método de Costo Promedio Ponderado Móvil · Acciones, ETF y Criptos
           </p>
         </div>
 
@@ -398,7 +398,7 @@ export function PortfolioDashboardView({
               Distribución por Tipo de Instrumento
             </h3>
             <p className="mt-0.5 text-xs text-slate-400">
-              Desglose entre Acciones (Stocks) y ETF valorados
+              Desglose entre Acciones (Stocks), ETF y Criptos valorados
             </p>
 
             {overview.assetTypeDistribution.length === 0 ? (

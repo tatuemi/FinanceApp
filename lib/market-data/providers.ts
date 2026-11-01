@@ -23,6 +23,25 @@ export function normalizeMarketSymbol(rawSymbol: string): string {
   return cleaned;
 }
 
+/**
+ * Resuelve el símbolo óptimo para consultar el proveedor bursátil.
+ * Si el activo es una criptomoneda (`asset_type === 'crypto'`) y el usuario
+ * ingresó un ticker base como `BTC`, `ETH` o `SOL` sin barra `/`,
+ * lo normaliza automáticamente al par en dólares (`BTC/USD`, `ETH/USD`) que utiliza Twelve Data.
+ */
+export function resolveQuerySymbolForAsset(asset: {
+  symbol: string;
+  provider_symbol?: string | null;
+  asset_type?: string | null;
+}): string {
+  const raw = (asset.provider_symbol ?? asset.symbol).trim().toUpperCase();
+  if (asset.asset_type === 'crypto' && !raw.includes('/') && !raw.includes(':')) {
+    const cleaned = raw.endsWith('-USD') ? raw.slice(0, -4) : raw;
+    return `${cleaned}/USD`;
+  }
+  return raw;
+}
+
 export function mapRangeToConfig(range: HistoryRange): {
   dbInterval: PriceCandleInterval;
   twelveDataInterval: string;

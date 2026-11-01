@@ -388,8 +388,10 @@ export function calculatePortfolioOverview(
   // Segundo paso: calcular Peso del activo (%) = Valor de mercado del activo / Valor de mercado total valorado × 100
   let stockMarketValue = new Decimal(0);
   let etfMarketValue = new Decimal(0);
+  let cryptoMarketValue = new Decimal(0);
   let stockCount = 0;
   let etfCount = 0;
+  let cryptoCount = 0;
 
   for (const pos of openPositions) {
     if (pos.marketValue !== null && totalMarketValue.greaterThan(0)) {
@@ -399,6 +401,9 @@ export function calculatePortfolioOverview(
       if (pos.assetType === 'stock') {
         stockMarketValue = stockMarketValue.plus(mv);
         stockCount += 1;
+      } else if (pos.assetType === 'crypto') {
+        cryptoMarketValue = cryptoMarketValue.plus(mv);
+        cryptoCount += 1;
       } else {
         etfMarketValue = etfMarketValue.plus(mv);
         etfCount += 1;
@@ -447,6 +452,15 @@ export function calculatePortfolioOverview(
         marketValue: etfMarketValue.toFixed(4),
         percentage: etfMarketValue.div(totalMarketValue).mul(100).toFixed(2),
         assetCount: etfCount,
+      });
+    }
+    if (cryptoCount > 0) {
+      assetTypeDistribution.push({
+        assetType: 'crypto',
+        label: 'Criptomonedas (Crypto)',
+        marketValue: cryptoMarketValue.toFixed(4),
+        percentage: cryptoMarketValue.div(totalMarketValue).mul(100).toFixed(2),
+        assetCount: cryptoCount,
       });
     }
   }

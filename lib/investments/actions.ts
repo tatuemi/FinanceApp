@@ -12,7 +12,10 @@ import {
   type ManualQuoteInput,
 } from '@/lib/validations/investments';
 import { processAssetTransactionsChronologically } from './calculations';
-import { resolveMarketDataProvider } from '@/lib/market-data/providers';
+import {
+  resolveMarketDataProvider,
+  resolveQuerySymbolForAsset,
+} from '@/lib/market-data/providers';
 import { normalizeEntityId } from '@/lib/utils/format';
 import type {
   InvestmentAssetRow,
@@ -40,12 +43,17 @@ async function tryAutoFetchAssetQuote(params: {
   assetId: string;
   symbol: string;
   providerSymbol?: string | null;
+  assetType?: string | null;
 }): Promise<void> {
   try {
     const provider = resolveMarketDataProvider();
     if (!provider.isConfigured) return;
 
-    const querySymbol = (params.providerSymbol ?? params.symbol).trim().toUpperCase();
+    const querySymbol = resolveQuerySymbolForAsset({
+      symbol: params.symbol,
+      provider_symbol: params.providerSymbol,
+      asset_type: params.assetType,
+    });
     const freshQuote = await provider.getQuote(querySymbol);
 
     await params.supabase.from('investment_quote_cache').upsert(
@@ -83,6 +91,11 @@ export async function createInvestmentAssetAction(
   }
 
   const { symbol, name, assetType, exchange, providerSymbol } = parsed.data;
+  const resolvedProviderSymbol = resolveQuerySymbolForAsset({
+    symbol,
+    provider_symbol: providerSymbol ?? symbol,
+    asset_type: assetType,
+  });
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -93,7 +106,7 @@ export async function createInvestmentAssetAction(
       name,
       asset_type: assetType,
       exchange,
-      provider_symbol: providerSymbol ?? symbol,
+      provider_symbol: resolvedProviderSymbol,
       currency: 'USD',
     } as never)
     .select('*')
@@ -105,6 +118,14 @@ export async function createInvestmentAssetAction(
         success: false,
         message: `El activo con símbolo "${symbol}" ya está registrado en tu portafolio.`,
         code: 'DUPLICATE_ASSET',
+      };
+    }
+    if (error?.code === '22P02') {
+      return {
+        success: false,
+        message:
+          "Para guardar criptomonedas en Supabase, ejecuta en el SQL Editor: ALTER TYPE public.investment_asset_type ADD VALUE IF NOT EXISTS 'crypto';",
+        code: 'DB_ENUM_PENDING',
       };
     }
     return {
@@ -121,6 +142,7 @@ export async function createInvestmentAssetAction(
     assetId: String(created.id),
     symbol: created.symbol,
     providerSymbol: created.provider_symbol,
+    assetType: created.asset_type,
   });
   revalidateInvestmentPaths();
 
@@ -157,6 +179,11 @@ export async function updateInvestmentAssetAction(
   }
 
   const { symbol, name, assetType, exchange, providerSymbol } = parsed.data;
+  const resolvedProviderSymbol = resolveQuerySymbolForAsset({
+    symbol,
+    provider_symbol: providerSymbol ?? symbol,
+    asset_type: assetType,
+  });
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -166,7 +193,7 @@ export async function updateInvestmentAssetAction(
       name,
       asset_type: assetType,
       exchange,
-      provider_symbol: providerSymbol ?? symbol,
+      provider_symbol: resolvedProviderSymbol,
     } as never)
     .eq('id', safeId)
     .eq('user_id', user.id)
@@ -181,6 +208,14 @@ export async function updateInvestmentAssetAction(
         code: 'DUPLICATE_ASSET',
       };
     }
+    if (error?.code === '22P02') {
+      return {
+        success: false,
+        message:
+          "Para guardar criptomonedas en Supabase, ejecuta en el SQL Editor: ALTER TYPE public.investment_asset_type ADD VALUE IF NOT EXISTS 'crypto';",
+        code: 'DB_ENUM_PENDING',
+      };
+    }
     return {
       success: false,
       message: 'No se pudo actualizar el activo.',
@@ -189,6 +224,14 @@ export async function updateInvestmentAssetAction(
   }
 
   const updated = data as InvestmentAssetRow;
+  await tryAutoFetchAssetQuote({
+    supabase,
+    userId: user.id,
+    assetId: String(updated.id),
+    symbol: updated.symbol,
+    providerSymbol: updated.provider_symbol,
+    assetType: updated.asset_type,
+  });
   revalidateInvestmentPaths();
 
   return {
@@ -278,7 +321,7 @@ export async function createInvestmentTransactionAction(
   // Verificar que el activo pertenezca al usuario
   const { data: assetData } = await supabase
     .from('investment_assets')
-    .select('id, symbol, provider_symbol')
+    .select('id, symbol, provider_symbol, asset_type')
     .eq('id', assetId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -293,7 +336,7 @@ export async function createInvestmentTransactionAction(
 
   const assetInfo = assetData as Pick<
     InvestmentAssetRow,
-    'id' | 'symbol' | 'provider_symbol'
+    'id' | 'symbol' | 'provider_symbol' | 'asset_type'
   >;
 
   // Pre-validación cronológica del historial del activo antes de insertar
@@ -369,6 +412,7 @@ export async function createInvestmentTransactionAction(
     assetId,
     symbol: assetInfo.symbol,
     providerSymbol: assetInfo.provider_symbol,
+    assetType: assetInfo.asset_type,
   });
   revalidateInvestmentPaths();
 

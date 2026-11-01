@@ -26,16 +26,19 @@ export const investmentAssetSchema = z.object({
     .string()
     .trim()
     .transform((v) => v.toUpperCase())
-    .refine((v) => /^[A-Z0-9.-]{1,20}$/.test(v), {
-      message: 'El símbolo bursátil debe tener entre 1 y 20 caracteres alfanuméricos (ej. AAPL, QQQ, BRK.B).',
+    .refine((v) => /^[A-Z0-9./-]{1,20}$/.test(v), {
+      message:
+        'El símbolo debe tener entre 1 y 20 caracteres alfanuméricos (ej. AAPL, QQQ, BTC, BTC/USD).',
     }),
   name: z
     .string()
     .trim()
     .min(1, 'El nombre del activo es obligatorio.')
     .max(150, 'El nombre no puede exceder 150 caracteres.'),
-  assetType: z.enum(['stock', 'etf'], {
-    errorMap: () => ({ message: 'Selecciona si el activo es Acción (Stock) o ETF.' }),
+  assetType: z.enum(['stock', 'etf', 'crypto'], {
+    errorMap: () => ({
+      message: 'Selecciona si el activo es Acción (Stock), ETF o Criptomoneda (Crypto).',
+    }),
   }),
   exchange: z
     .string()

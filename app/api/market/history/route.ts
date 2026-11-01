@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth/session';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { mapRangeToConfig, resolveMarketDataProvider, sanitizeCandle } from '@/lib/market-data/providers';
+import {
+  mapRangeToConfig,
+  resolveMarketDataProvider,
+  resolveQuerySymbolForAsset,
+  sanitizeCandle,
+} from '@/lib/market-data/providers';
 import { MarketDataError, type HistoryRange, type PriceCandle } from '@/lib/market-data/types';
 import { normalizeEntityId } from '@/lib/utils/format';
 import type { InvestmentAssetRow, InvestmentPriceHistoryRow } from '@/types/database';
@@ -111,7 +116,7 @@ export async function GET(request: NextRequest) {
   }
 
   const provider = resolveMarketDataProvider();
-  const querySymbol = (asset.provider_symbol ?? asset.symbol).trim().toUpperCase();
+  const querySymbol = resolveQuerySymbolForAsset(asset);
 
   try {
     const freshCandles = await provider.getHistory(querySymbol, range);

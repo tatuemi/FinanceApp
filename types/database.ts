@@ -13,7 +13,7 @@ export type UserId = string;
 export type DecimalString = string;
 
 export type FinanceTransactionType = 'income' | 'expense';
-export type InvestmentAssetType = 'stock' | 'etf';
+export type InvestmentAssetType = 'stock' | 'etf' | 'crypto';
 export type InvestmentTransactionType = 'buy' | 'sell';
 export type PriceCandleInterval =
   | '1min'
