@@ -12,6 +12,7 @@ import {
   type ManualQuoteInput,
 } from '@/lib/validations/investments';
 import { processAssetTransactionsChronologically } from './calculations';
+import { resolveMarketDataProvider } from '@/lib/market-data/providers';
 import { normalizeEntityId } from '@/lib/utils/format';
 import type {
   InvestmentAssetRow,
@@ -25,6 +26,43 @@ function revalidateInvestmentPaths() {
   revalidatePath('/portfolio');
   revalidatePath('/assets');
   revalidatePath('/investments');
+}
+
+/**
+ * Intenta obtener y guardar en caché la cotización actual automáticamente desde el proveedor
+ * gratuito configurado (Twelve Data o Finnhub) al crear un activo o registrar una operación.
+ * Si el proveedor no está configurado o alcanza el límite de peticiones, falla silenciosamente
+ * sin interrumpir el registro contable.
+ */
+async function tryAutoFetchAssetQuote(params: {
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>;
+  userId: string;
+  assetId: string;
+  symbol: string;
+  providerSymbol?: string | null;
+}): Promise<void> {
+  try {
+    const provider = resolveMarketDataProvider();
+    if (!provider.isConfigured) return;
+
+    const querySymbol = (params.providerSymbol ?? params.symbol).trim().toUpperCase();
+    const freshQuote = await provider.getQuote(querySymbol);
+
+    await params.supabase.from('investment_quote_cache').upsert(
+      {
+        user_id: params.userId,
+        asset_id: params.assetId,
+        price: freshQuote.price,
+        currency: 'USD',
+        provider: freshQuote.provider,
+        market_time: freshQuote.marketTime,
+        fetched_at: freshQuote.fetchedAt,
+      } as never,
+      { onConflict: 'asset_id,user_id' }
+    );
+  } catch {
+    // Falla de forma no bloqueante si no hay cuota o red
+  }
 }
 
 export async function createInvestmentAssetAction(
@@ -77,6 +115,13 @@ export async function createInvestmentAssetAction(
   }
 
   const created = data as InvestmentAssetRow;
+  await tryAutoFetchAssetQuote({
+    supabase,
+    userId: user.id,
+    assetId: String(created.id),
+    symbol: created.symbol,
+    providerSymbol: created.provider_symbol,
+  });
   revalidateInvestmentPaths();
 
   return {
@@ -233,7 +278,7 @@ export async function createInvestmentTransactionAction(
   // Verificar que el activo pertenezca al usuario
   const { data: assetData } = await supabase
     .from('investment_assets')
-    .select('id, symbol')
+    .select('id, symbol, provider_symbol')
     .eq('id', assetId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -245,6 +290,11 @@ export async function createInvestmentTransactionAction(
       code: 'ASSET_NOT_FOUND',
     };
   }
+
+  const assetInfo = assetData as Pick<
+    InvestmentAssetRow,
+    'id' | 'symbol' | 'provider_symbol'
+  >;
 
   // Pre-validación cronológica del historial del activo antes de insertar
   const { data: existingTxsData } = await supabase
@@ -313,6 +363,13 @@ export async function createInvestmentTransactionAction(
   }
 
   const created = data as InvestmentTransactionRow;
+  await tryAutoFetchAssetQuote({
+    supabase,
+    userId: user.id,
+    assetId,
+    symbol: assetInfo.symbol,
+    providerSymbol: assetInfo.provider_symbol,
+  });
   revalidateInvestmentPaths();
 
   return {

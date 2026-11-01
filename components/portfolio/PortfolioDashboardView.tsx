@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InvestmentAssetRow } from '@/types/database';
@@ -55,6 +55,56 @@ export function PortfolioDashboardView({
   );
   const [manualPrice, setManualPrice] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
+  const autoRefreshTriggeredRef = useRef(false);
+
+  // Refresco automático no bloqueante al abrir el portafolio si existen posiciones sin cotización o con caché vencida (>15 min)
+  useEffect(() => {
+    if (autoRefreshTriggeredRef.current) return;
+    const staleOrMissing = overview.positions.filter(
+      (p) => !p.hasValidQuote || p.isQuoteStale
+    );
+    if (staleOrMissing.length === 0) return;
+
+    autoRefreshTriggeredRef.current = true;
+    let cancelled = false;
+
+    async function autoSyncMissingOrStaleQuotes() {
+      let updatedAny = false;
+      for (const pos of staleOrMissing) {
+        if (cancelled) return;
+        try {
+          const res = await fetch(
+            `/api/market/quote?assetId=${encodeURIComponent(pos.assetId)}`,
+            { method: 'GET', headers: { Accept: 'application/json' } }
+          );
+          if (res.ok) {
+            const payload = (await res.json()) as {
+              quote?: unknown;
+              fromCache?: boolean;
+              quotaExhausted?: boolean;
+            };
+            if (payload.quote && !payload.fromCache) {
+              updatedAny = true;
+            }
+            if (payload.quotaExhausted) {
+              break;
+            }
+          }
+        } catch {
+          // Ignorar silenciosamente si no hay proveedor automático configurado
+        }
+      }
+      if (!cancelled && updatedAny) {
+        router.refresh();
+      }
+    }
+
+    void autoSyncMissingOrStaleQuotes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overview.positions, router]);
 
   async function handleRefreshAllQuotes() {
     if (overview.positions.length === 0) return;
